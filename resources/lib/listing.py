@@ -31,17 +31,25 @@ _TIME = xbmc.getRegion("time")
 
 
 def _strftime(value: datetime, fmt: str) -> str:
-    """Format a date, working around a missing `%-d` on Android.
+    """Format a Kodi region format without relying on libc's `%-d` / `%-m`.
 
-    Kodi's Android builds use a libc whose strftime rejects the glibc `%-d`
-    no-pad flag, which appears in several regional `datelong` strings.
+    Kodi emits those no-pad directives for a one-character day or month.
+    Some libc implementations reject them; others copy them as `-d` or `-m`
+    without raising. Render portable zero-padded values separately and insert
+    them through literal sentinels instead.
     """
-    if "%-d" in fmt:
-        try:
-            return value.strftime(fmt)
-        except ValueError:
-            fmt = fmt.replace("%-d", value.strftime("%d").lstrip("0"))
-    return value.strftime(fmt)
+    replacements = (
+        ("%-d", "__IMMICH_DAY__", value.strftime("%d").lstrip("0") or "0"),
+        ("%-m", "__IMMICH_MONTH__", value.strftime("%m").lstrip("0") or "0"),
+    )
+    for token, marker, replacement in replacements:
+        if token in fmt:
+            fmt = fmt.replace(token, marker)
+
+    rendered = value.strftime(fmt)
+    for _token, marker, replacement in replacements:
+        rendered = rendered.replace(marker, replacement)
+    return rendered
 
 
 def format_datetime(value: Optional[datetime]) -> str:

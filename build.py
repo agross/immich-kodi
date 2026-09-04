@@ -60,6 +60,13 @@ def build():
 
     files = collect_files()
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as archive:
+        # Kodi's Android zip VFS does not infer a parent directory from its
+        # files. Without this concrete entry it can list the archive yet fails
+        # to open plugin.video.immich/addon.xml during installation.
+        directory = zipfile.ZipInfo(f"{addon_id}/")
+        directory.create_system = 3
+        directory.external_attr = (0o40755 << 16) | 0x10
+        archive.writestr(directory, b"")
         for path in files:
             archive.write(path, Path(addon_id) / path.relative_to(ROOT))
 

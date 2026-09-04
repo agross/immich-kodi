@@ -4,7 +4,7 @@
   would orphan every existing user's settings on upgrade.
 -->
 <addon id="plugin.video.immich"
-       version="2.3.1"
+       version="2.3.2"
        name="Immich"
        provider-name="Immich Kodi contributors">
     <requires>
@@ -45,8 +45,9 @@
             <fanart>resources/fanart.jpg</fanart>
         </assets>
         <news>
-v2.3.1
-- Test connection now reports when the API key is missing the asset.download permission, which is what makes the Original photo and video options fail with only "playback failed" from Kodi.
+v2.3.2
+- Fixed Android installation: the release ZIP now declares its addon root directory.
+- Fixed date labels on Kodi platforms whose strftime renders the no-pad day token as "-d".
 </news>
     </extension>
 </addon>

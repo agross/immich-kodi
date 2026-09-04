@@ -12,6 +12,8 @@ import os
 import re
 import subprocess
 import sys
+import zipfile
+from xml.etree import ElementTree
 from urllib.parse import parse_qsl, unquote, urlparse
 
 import harness
@@ -122,6 +124,28 @@ def static_setting_ids(h):
                     f"TypeError('Invalid setting type')"
                 )
     return problems
+
+
+@case("package: zip declares the addon root directory")
+def package_root_directory(h):
+    """Kodi's Android zip VFS needs a physical root directory entry.
+
+    File members beneath the directory are insufficient: the Fire TV build
+    reports that addon.xml cannot be opened even though the entry exists.
+    """
+    finished = subprocess.run(
+        [sys.executable, os.path.join(REPO, "build.py")],
+        capture_output=True,
+        text=True,
+    )
+    if finished.returncode:
+        return [f"build.py failed: {finished.stderr.strip()}"]
+    version = ElementTree.parse(os.path.join(REPO, "addon.xml")).getroot().get("version")
+    archive_path = os.path.join(REPO, "dist", f"plugin.video.immich-{version}.zip")
+    with zipfile.ZipFile(archive_path) as archive:
+        if "plugin.video.immich/" not in archive.namelist():
+            return ["package lacks the plugin.video.immich/ directory entry"]
+    return []
 
 
 @case("static: each lib module imports standalone (no cycles, no path surprises)")
@@ -1117,6 +1141,28 @@ def label_region_variants(h):
     finally:
         xbmc.REGION_FORMATS.clear()
         xbmc.REGION_FORMATS.update(saved)
+    return problems
+
+
+@case("labels: a libc that emits -d for %-d still renders the day")
+def label_broken_no_pad_day(h):
+    """LibreELEC's strftime may copy the unsupported no-pad token as `-d`.
+
+    It does not raise ValueError, so this models the exact broken label rather
+    than the Android failure mode covered above.
+    """
+    class BrokenNoPadDay:
+        def strftime(self, fmt):
+            if "%d" in fmt:
+                return "05"
+            return fmt.replace("%-d", "-d")
+
+    import listing
+
+    result = listing._strftime(BrokenNoPadDay(), "Sunday, %-d. July 2026 19:21:00")
+    problems = []
+    if result != "Sunday, 5. July 2026 19:21:00":
+        problems.append(f"unsupported %-d rendered as {result!r}")
     return problems
 
 
